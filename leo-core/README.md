@@ -1,5 +1,9 @@
 # Leo Core v0.2 – AI Visibility Scoring Engine
 
+![Build status](https://github.com/Yesh48/LEOlabs/actions/workflows/ci.yml/badge.svg)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 Leo Core is the reference implementation of the **LeoRank** visibility model. It orchestrates a LangGraph pipeline of specialist agents that crawl a website, measure structural readiness, evaluate semantic coherence, and surface GPT-powered guidance for improving Large Language Model visibility.
 
 Version **0.2.0** introduces production-grade persistence, Helm + Homebrew distribution, an MCP server for GPT integrations, and the fully weighted LeoRank formula.
@@ -19,7 +23,7 @@ Version **0.2.0** introduces production-grade persistence, Helm + Homebrew distr
 Crawler → Structure → Semantic → Scoring → Advisor
 ```
 
-Each agent reads and writes a `LeoState` object so downstream logic has access to HTML, extracted text, computed metrics, and generated suggestions.
+Each agent reads and writes a `LeoState` object so downstream logic has access to HTML, extracted text, computed metrics, and generated suggestions. The architecture diagram in [`docs/architecture.md`](docs/architecture.md) illustrates how data flows between agents, storage, and surfaces.
 
 ## Quick Start
 
@@ -44,6 +48,8 @@ Reports are saved to `examples/<slug>.json` by default; pass `--output` to overr
 ### FastAPI Service
 
 ```bash
+python cli.py serve
+# or
 uvicorn api.server:app --host 0.0.0.0 --port 8000
 ```
 
@@ -76,7 +82,10 @@ docker run --rm -p 8000:8000 \
 ### Helm Deployment
 
 ```bash
-helm install leo-core charts/leo-core -n leo --create-namespace
+helm install leo-core charts/leo-core -n leo --create-namespace \
+  --set env.OPENAI_API_KEY="sk-..." \
+  --set db.postgres.enabled=true \
+  --set mcp.enabled=true
 ```
 
 Key `values.yaml` sections:
@@ -113,13 +122,13 @@ Run via `leo mcp --host 0.0.0.0 --port 8800` or deploy the Helm subchart.
 
 ```bash
 pip install .[test]
-pytest
+pytest -v
 ```
 
 ### Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards, development workflow, and release guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards, development workflow, and release guidelines. Issue and pull request templates live under [`.github/`](.github/) to help new contributors share context quickly.
 
 ### License
 
-Apache 2.0 – refer to [LICENSE](LICENSE) for the full text.
+Leo Core is released under the [MIT License](LICENSE).

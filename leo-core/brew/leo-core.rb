@@ -7,7 +7,7 @@ class LeoCore < Formula
   homepage "https://github.com/leo-labs/leo-core"
   url "https://github.com/leo-labs/leo-core/archive/refs/tags/v0.2.0.tar.gz"
   sha256 "0" * 64
-  license "Apache-2.0"
+  license "MIT"
 
   depends_on "python@3.11"
 
