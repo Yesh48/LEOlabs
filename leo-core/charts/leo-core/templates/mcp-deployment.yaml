@@ -1,0 +1,58 @@
+{{- if .Values.mcp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "leo-core.fullname" . }}-mcp
+  labels:
+    {{- include "leo-core.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "leo-core.name" . }}-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "leo-core.name" . }}-mcp
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: mcp
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - python
+            - cli.py
+            - mcp
+            - --host
+            - 0.0.0.0
+            - --port
+            - {{ .Values.mcp.port | quote }}
+          ports:
+            - containerPort: {{ .Values.mcp.port }}
+              name: mcp
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leo-core.fullname" . }}-secrets
+                  key: OPENAI_API_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "leo-core.fullname" . }}-mcp
+  labels:
+    {{- include "leo-core.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "leo-core.name" . }}-mcp
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: mcp
+      port: {{ .Values.mcp.port }}
+      targetPort: mcp
+      protocol: TCP
+{{- end }}

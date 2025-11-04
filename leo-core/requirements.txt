@@ -1,0 +1,11 @@
+langgraph
+typer
+fastapi
+uvicorn
+requests
+beautifulsoup4
+pydantic
+numpy
+scikit-learn
+openai
+psycopg2-binary
