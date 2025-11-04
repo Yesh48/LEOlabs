@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "leo-core"
+version = "0.1.0"
+description = "Leo Core LangGraph agents for LeoRank visibility scoring"
+authors = [
+  {name = "Leo Labs"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "langgraph",
+  "typer",
+  "fastapi",
+  "uvicorn",
+  "requests",
+  "beautifulsoup4",
+  "pydantic",
+  "numpy",
+  "scikit-learn",
+]
+
+[project.scripts]
+leo = "cli:app"

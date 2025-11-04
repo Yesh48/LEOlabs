@@ -1,0 +1,15 @@
+{
+  "url": "https://example.com",
+  "metrics": {
+    "structure": 0.42,
+    "semantic": 0.85
+  },
+  "leo_rank": 63.5,
+  "suggestions": [
+    "Improve structured data coverage for richer search previews.",
+    "Strengthen semantic consistency across key landing pages.",
+    "Add internal links to highlight high-value content clusters."
+  ],
+  "html_present": true,
+  "text_length": 1200
+}
