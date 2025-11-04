@@ -69,7 +69,7 @@ def _call_openai(state: LeoState) -> List[str] | None:
 def run(state: LeoState) -> LeoState:
     """Attach AI-generated or static recommendations to the Leo state."""
     suggestions = _call_openai(state) or list(DEFAULT_SUGGESTIONS)
-    return state.copy(update={"suggestions": suggestions})
+    return state.model_copy(update={"suggestions": suggestions})
 
 
 __all__ = ["run", "DEFAULT_SUGGESTIONS"]

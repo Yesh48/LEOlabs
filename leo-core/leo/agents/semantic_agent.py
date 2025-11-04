@@ -7,10 +7,10 @@ from typing import Iterable, Optional
 import numpy as np
 
 try:  # pragma: no cover - optional dependency path
-    from openai import OpenAI
+    import openai
     from openai import OpenAIError
 except Exception:  # pragma: no cover - when openai isn't available at runtime
-    OpenAI = None  # type: ignore
+    openai = None  # type: ignore
     OpenAIError = Exception  # type: ignore
 
 from ..state import LeoState
@@ -20,19 +20,29 @@ EMBEDDING_MODEL = os.getenv("LEO_EMBEDDING_MODEL", "text-embedding-3-small")
 
 
 def _maybe_remote_embeddings(chunks: Iterable[str]) -> Optional[np.ndarray]:
-    if OpenAI is None:
+    if openai is None:
         return None
     chunk_list = list(chunks)
     if not chunk_list:
-        return np.zeros((0, 0), dtype=float)
+        return None
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return None
     try:
-        client = OpenAI(api_key=api_key)
-        response = client.embeddings.create(model=EMBEDDING_MODEL, input=chunk_list)
-        vectors = np.array([item.embedding for item in response.data], dtype=float)
-        return vectors
+        openai.api_key = api_key
+        response = openai.embeddings.create(model=EMBEDDING_MODEL, input=chunk_list)
+        data = getattr(response, "data", None) or []
+        vector_list = []
+        for item in data:
+            embedding = getattr(item, "embedding", None)
+            if embedding is None and isinstance(item, dict):
+                embedding = item.get("embedding")
+            if embedding is None:
+                continue
+            vector_list.append(embedding)
+        if not vector_list:
+            return None
+        return np.array(vector_list, dtype=float)
     except OpenAIError:
         return None
     except Exception:
@@ -52,7 +62,7 @@ def run(state: LeoState) -> LeoState:
     metrics = dict(state.metrics)
     metrics["semantic"] = round(float(semantic_score), 4)
 
-    return state.copy(update={"metrics": metrics})
+    return state.model_copy(update={"metrics": metrics})
 
 
 __all__ = ["run"]

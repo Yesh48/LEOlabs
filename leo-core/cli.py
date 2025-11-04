@@ -9,7 +9,7 @@ from typing import Optional
 import typer
 
 from leo.db import get_database
-from leo.graph import run_audit
+from leo.graph import run_pipeline
 from leo.utils.report_utils import save_report, state_to_report
 
 app = typer.Typer(help="Leo Core command line interface")
@@ -29,7 +29,7 @@ def audit(
 ) -> None:
     """Audit a URL using the Leo pipeline."""
     typer.echo(f"Auditing {url}...")
-    state = run_audit(url, persist=persist)
+    state = run_pipeline(url, persist=persist)
     report = state_to_report(state)
     typer.echo(json.dumps(report, indent=2))
 
@@ -44,7 +44,7 @@ def recent(limit: int = typer.Option(10, help="Number of recent scores to displa
     """Display recent LeoRank scores."""
     database = get_database()
     for row in database.recent_scores(limit=limit):
-        typer.echo(f"{row['timestamp']}: {row['url']} → {row['rank']}")
+        typer.echo(f"#{row['id']} {row['timestamp']}: {row['url']} → {row['rank']}")
 
 
 @app.command()

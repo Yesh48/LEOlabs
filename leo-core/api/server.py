@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Query
 
 from leo.db import get_database
-from leo.graph import run_audit
+from leo.graph import run_pipeline
 from leo.utils.report_utils import state_to_report
 
 app = FastAPI(title="Leo Core API", version="0.2.0")
@@ -28,7 +28,7 @@ def audit(url: str = Query(..., description="URL to audit"), persist: bool = Que
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
 
-    state = run_audit(url, persist=persist)
+    state = run_pipeline(url, persist=persist)
     return state_to_report(state)
 
 

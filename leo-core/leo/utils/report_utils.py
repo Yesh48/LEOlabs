@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
@@ -18,7 +18,7 @@ def state_to_report(state: LeoState) -> Dict[str, Any]:
         "suggestions": state.suggestions,
         "html_present": bool(state.html),
         "text_length": len(state.text or ""),
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

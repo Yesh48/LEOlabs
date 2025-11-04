@@ -32,12 +32,32 @@ spec:
           ports:
             - containerPort: {{ .Values.mcp.port }}
               name: mcp
+          {{- $postgresEnabled := .Values.db.postgres.enabled }}
           env:
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "leo-core.fullname" . }}-secrets
                   key: OPENAI_API_KEY
+            - name: LEO_DB_ENGINE
+              value: {{ .Values.db.engine | quote }}
+            - name: POSTGRES_ENABLED
+              value: {{ ternary "true" "false" $postgresEnabled | quote }}
+            - name: LEO_DB_PATH
+              value: "/tmp/leo.db"
+            - name: LEO_DB_HOST
+              value: {{ ternary (printf "%s-postgresql" (include "leo-core.fullname" .)) .Values.db.postgres.host $postgresEnabled | quote }}
+            - name: LEO_DB_PORT
+              value: {{ .Values.db.postgres.port | quote }}
+            - name: LEO_DB_USER
+              value: {{ .Values.db.postgres.user | quote }}
+            - name: LEO_DB_NAME
+              value: {{ .Values.db.postgres.database | quote }}
+            - name: LEO_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leo-core.fullname" . }}-secrets
+                  key: LEO_DB_PASSWORD
 ---
 apiVersion: v1
 kind: Service

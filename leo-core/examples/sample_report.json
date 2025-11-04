@@ -1,16 +1,17 @@
 {
   "url": "https://example.com",
   "metrics": {
-    "structure": 0.62,
-    "semantic": 0.78
+    "structure": 0.68,
+    "semantic": 0.74,
+    "retrieval": 0.55
   },
-  "leo_rank": 70.0,
+  "leo_rank": 65.8,
   "suggestions": [
     "Consolidate duplicate headings to improve topic focus.",
     "Publish structured FAQ content with schema markup.",
     "Link to fresh blog posts from the homepage hero section."
   ],
   "html_present": true,
-  "text_length": 1840,
-  "generated_at": "2024-01-01T00:00:00"
+  "text_length": 2048,
+  "generated_at": "2024-05-01T00:00:00"
 }

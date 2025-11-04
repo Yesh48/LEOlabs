@@ -13,10 +13,20 @@ except Exception:  # pragma: no cover - optional dependency
     psycopg2 = None  # type: ignore
 
 
-SCORES_TABLE_SQL = """
+SQLITE_SCORES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT NOT NULL,
     rank REAL NOT NULL,
+    timestamp TEXT NOT NULL
+)
+"""
+
+POSTGRES_SCORES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS scores (
+    id SERIAL PRIMARY KEY,
+    url TEXT NOT NULL,
+    rank DOUBLE PRECISION NOT NULL,
     timestamp TEXT NOT NULL
 )
 """
@@ -30,7 +40,8 @@ class Database:
     """Minimal database wrapper supporting SQLite and Postgres."""
 
     def __init__(self) -> None:
-        self.engine = os.getenv("LEO_DB_ENGINE", "sqlite").lower()
+        postgres_enabled = os.getenv("POSTGRES_ENABLED", "").lower() in {"1", "true", "yes"}
+        self.engine = "postgres" if postgres_enabled else os.getenv("LEO_DB_ENGINE", "sqlite").lower()
         if self.engine not in {"sqlite", "postgres"}:
             raise DatabaseError(f"Unsupported database engine: {self.engine}")
         self._sqlite_path = os.getenv("LEO_DB_PATH", "/tmp/leo.db")
@@ -62,7 +73,10 @@ class Database:
             return
         with closing(self.connect()) as conn:
             cursor = conn.cursor()
-            cursor.execute(SCORES_TABLE_SQL)
+            if self.engine == "postgres":
+                cursor.execute(POSTGRES_SCORES_TABLE_SQL)
+            else:
+                cursor.execute(SQLITE_SCORES_TABLE_SQL)
             conn.commit()
         self._initialised = True
 
@@ -72,21 +86,25 @@ class Database:
         ts = timestamp or datetime.utcnow().isoformat()
         with closing(self.connect()) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO scores (url, rank, timestamp) VALUES (%s, %s, %s)"
-                if self.engine == "postgres"
-                else "INSERT INTO scores (url, rank, timestamp) VALUES (?, ?, ?)",
-                (url, rank, ts),
-            )
+            if self.engine == "postgres":
+                cursor.execute(
+                    "INSERT INTO scores (url, rank, timestamp) VALUES (%s, %s, %s)",
+                    (url, rank, ts),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO scores (url, rank, timestamp) VALUES (?, ?, ?)",
+                    (url, rank, ts),
+                )
             conn.commit()
 
     def recent_scores(self, limit: int = 10) -> List[Dict[str, Any]]:
         self.init()
         if self.engine == "postgres":
-            query = "SELECT url, rank, timestamp FROM scores ORDER BY timestamp DESC LIMIT %s"
+            query = "SELECT id, url, rank, timestamp FROM scores ORDER BY timestamp DESC LIMIT %s"
             params = (limit,)
         else:
-            query = "SELECT url, rank, timestamp FROM scores ORDER BY timestamp DESC LIMIT ?"
+            query = "SELECT id, url, rank, timestamp FROM scores ORDER BY timestamp DESC LIMIT ?"
             params = (limit,)
         with closing(self.connect()) as conn:
             cursor = conn.cursor()
@@ -95,10 +113,17 @@ class Database:
         results: List[Dict[str, Any]] = []
         for row in rows:
             if self.engine == "postgres":
-                url, rank, timestamp = row
+                record_id, url, rank, timestamp = row
             else:
-                url, rank, timestamp = row[0], row[1], row[2]
-            results.append({"url": url, "rank": float(rank), "timestamp": str(timestamp)})
+                record_id, url, rank, timestamp = row
+            results.append(
+                {
+                    "id": int(record_id),
+                    "url": url,
+                    "rank": float(rank),
+                    "timestamp": str(timestamp),
+                }
+            )
         return results
 
     def summary(self) -> Dict[str, Any]:

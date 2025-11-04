@@ -22,7 +22,7 @@ def run(state: LeoState) -> LeoState:
     structure_score = round((meta_score + schema_score + og_score) / 3.0, 4)
     metrics["structure"] = structure_score
 
-    return state.copy(update={"metrics": metrics})
+    return state.model_copy(update={"metrics": metrics})
 
 
 __all__ = ["run"]

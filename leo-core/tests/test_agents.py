@@ -59,12 +59,38 @@ def test_semantic_agent_updates_metrics() -> None:
     assert 0.0 <= result.metrics["semantic"] <= 1.0
 
 
-def test_scoring_agent_combines_metrics() -> None:
-    """Scoring agent should compute leo_rank from metrics."""
-    state = LeoState(url="https://example.com", metrics={"structure": 0.4, "semantic": 0.8})
-    result = scoring_agent.run(state)
+def test_scoring_agent_combines_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scoring agent should compute leo_rank with retrieval weighting and persist."""
 
-    assert result.leo_rank == pytest.approx(60.0)
+    class DummyDB:
+        def __init__(self) -> None:
+            self.saved = []
+
+        def record_score(self, url: str, rank: float, timestamp: str | None = None) -> None:  # noqa: ARG002
+            self.saved.append((url, rank))
+
+    dummy_db = DummyDB()
+    monkeypatch.setattr(scoring_agent, "get_database", lambda: dummy_db)
+    monkeypatch.setattr(
+        scoring_agent,
+        "compute_retrieval_score",
+        lambda text, headings, anchors: 0.5,
+    )
+
+    state = LeoState(
+        url="https://example.com",
+        html="<html><body><h1>Test</h1><a href='#'>Link</a></body></html>",
+        text="content" * 100,
+        metrics={"structure": 0.4, "semantic": 0.8},
+    )
+    result = scoring_agent.run(state, persist=True)
+
+    assert result.metrics["retrieval"] == pytest.approx(0.5)
+    assert result.leo_rank == pytest.approx(58.0)
+    assert len(dummy_db.saved) == 1
+    saved_url, saved_rank = dummy_db.saved[0]
+    assert saved_url == "https://example.com"
+    assert saved_rank == pytest.approx(58.0)
 
 
 def test_advisor_agent_returns_suggestions() -> None:
