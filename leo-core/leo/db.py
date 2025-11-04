@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from contextlib import closing
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 try:
@@ -83,7 +83,7 @@ class Database:
     # operations ----------------------------------------------------------
     def record_score(self, url: str, rank: float, timestamp: Optional[str] = None) -> None:
         self.init()
-        ts = timestamp or datetime.utcnow().isoformat()
+        ts = timestamp or datetime.now(timezone.utc).isoformat()
         with closing(self.connect()) as conn:
             cursor = conn.cursor()
             if self.engine == "postgres":

@@ -29,6 +29,8 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "pytest",
+  "pytest-cov",
+  "flake8",
 ]
 
 [project.scripts]

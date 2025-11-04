@@ -1,17 +1,17 @@
 {
-  "url": "https://example.com",
+  "url": "https://openai.com",
   "metrics": {
-    "structure": 0.68,
-    "semantic": 0.74,
-    "retrieval": 0.55
+    "structure": 0.72,
+    "semantic": 0.81,
+    "retrieval": 0.59
   },
-  "leo_rank": 65.8,
+  "leo_rank": 73.0,
   "suggestions": [
-    "Consolidate duplicate headings to improve topic focus.",
-    "Publish structured FAQ content with schema markup.",
-    "Link to fresh blog posts from the homepage hero section."
+    "Expand schema.org coverage for product and FAQ content.",
+    "Tighten semantic clusters by linking related long-form articles.",
+    "Expose key conversion paths through contextual internal links."
   ],
   "html_present": true,
-  "text_length": 2048,
-  "generated_at": "2024-05-01T00:00:00"
+  "text_length": 4182,
+  "generated_at": "2024-07-15T00:00:00Z"
 }

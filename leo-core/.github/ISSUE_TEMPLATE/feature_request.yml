@@ -1,0 +1,47 @@
+name: "Feature request"
+description: "Suggest an idea for Leo Core"
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share your proposal for improving Leo Core. The more detail you include, the easier it will be to scope and prioritize.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: What should we build?
+      placeholder: Concise statement of the idea
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this feature valuable? What problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior, API changes, and affected components.
+      placeholder: |
+        - Update StructureAgent to...
+        - Add CLI flag ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List any alternative approaches or workarounds.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Contributor checklist
+      options:
+        - label: I am willing to help implement this feature
+          required: false
+        - label: I have reviewed existing issues and PRs to avoid duplicates
+          required: true
