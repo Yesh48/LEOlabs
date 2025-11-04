@@ -1,3 +1,4 @@
+"""Integration tests for the FastAPI surface."""
 from dataclasses import dataclass
 
 import pytest
@@ -5,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from api.server import app
 from leo import db as leo_db
+
 
 SAMPLE_HTML = """
 <!DOCTYPE html>
@@ -58,3 +60,4 @@ def test_audit_endpoint_and_metrics(monkeypatch):
         health_response = client.get("/healthz")
         assert health_response.status_code == 200
         assert health_response.json()["status"] == "ok"
+
