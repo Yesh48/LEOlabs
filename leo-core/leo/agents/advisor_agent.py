@@ -1,75 +1,71 @@
-"""Advisor agent producing actionable suggestions."""
-from __future__ import annotations
+"""
+leo/agents/advisor_agent.py
+Generates actionable recommendations based on structure, semantic, and LeoRank results.
+If OpenAI API is available, enhances suggestions using GPT; otherwise uses static logic.
+"""
 
 import os
-from typing import List
+from leo.state import LeoState
 
-try:  # pragma: no cover - optional dependency path
-    from openai import OpenAI
-    from openai import OpenAIError
-except Exception:  # pragma: no cover - when openai isn't installed
-    OpenAI = None  # type: ignore
-    OpenAIError = Exception  # type: ignore
-
-from ..state import LeoState
-
-DEFAULT_SUGGESTIONS = [
-    "Improve structured data coverage for richer search previews.",
-    "Strengthen semantic consistency across key landing pages.",
-    "Add internal links to highlight high-value content clusters.",
-]
-
-ADVISOR_MODEL = os.getenv("LEO_ADVISOR_MODEL", "gpt-4o-mini")
+try:
+    import openai
+except ImportError:
+    openai = None
 
 
-def _advisor_prompt(state: LeoState) -> str:
-    metrics_summary = ", ".join(f"{key}: {value}" for key, value in state.metrics.items()) or "No metrics collected"
-    return (
-        "You are Leo, an AI visibility expert. Based on the following metrics and score, "
-        "provide three concise recommendations to improve the site's search visibility."
-        f"\nURL: {state.url}\nLeoRank: {state.leo_rank}\nMetrics: {metrics_summary}\n"
-        "Respond with a numbered list."
-    )
+class AdvisorAgent:
+    """Provide recommendations to improve AI visibility and LEO rank."""
 
+    def __init__(self):
+        self.api_key = os.getenv("OPENAI_API_KEY", "")
+        if self.api_key and openai:
+            openai.api_key = self.api_key
 
-def _call_openai(state: LeoState) -> List[str] | None:
-    if OpenAI is None:
-        return None
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return None
-    try:
-        client = OpenAI(api_key=api_key)
-        response = client.chat.completions.create(
-            model=ADVISOR_MODEL,
-            messages=[
-                {"role": "system", "content": "You are an SEO assistant."},
-                {"role": "user", "content": _advisor_prompt(state)},
-            ],
-            max_tokens=300,
-        )
-        content = response.choices[0].message.content if response.choices else ""
-        if not content:
-            return None
-        suggestions = []
-        for line in content.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            if line[0].isdigit():
-                line = line.split(".", 1)[-1].strip()
-            suggestions.append(line)
-        return suggestions[:3] if suggestions else None
-    except OpenAIError:
-        return None
-    except Exception:
-        return None
+    def _static_recommendations(self, state: LeoState):
+        """Fallback static logic."""
+        tips = []
+        s = state.metrics.get("structure", 0)
+        sem = state.metrics.get("semantic", 0)
+        rank = state.leo_rank or 0
 
+        if s < 60:
+            tips.append("Add descriptive <alt> tags to images and ensure meta tags are unique.")
+        if sem < 60:
+            tips.append("Improve on-page text clarity and include relevant AI/tech keywords naturally.")
+        if rank < 70:
+            tips.append("Strengthen both content structure and readability for better AI comprehension.")
+        if not tips:
+            tips.append("Your site structure and semantic clarity are strong. Continue consistent updates.")
 
-def run(state: LeoState) -> LeoState:
-    """Attach AI-generated or static recommendations to the Leo state."""
-    suggestions = _call_openai(state) or list(DEFAULT_SUGGESTIONS)
-    return state.model_copy(update={"suggestions": suggestions})
+        return tips
 
+    def run(self, state: LeoState) -> LeoState:
+        print("[AdvisorAgent] Generating improvement suggestions...")
 
-__all__ = ["run", "DEFAULT_SUGGESTIONS"]
+        if self.api_key and openai:
+            try:
+                prompt = f"""
+                You are an AI visibility auditor.
+                The website has these metrics:
+                Structure: {state.metrics.get('structure')}
+                Semantic: {state.metrics.get('semantic')}
+                LeoRank: {state.leo_rank}
+
+                Suggest 3 concise improvements to increase AI visibility.
+                """
+                chat = openai.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=200,
+                )
+                suggestions = [m["message"]["content"].strip() for m in chat.choices]
+                print("[AdvisorAgent] ✅ Online GPT recommendations generated.")
+            except Exception as e:
+                print(f"[AdvisorAgent] ⚠️ OpenAI API failed ({e}) — using static recommendations.")
+                suggestions = self._static_recommendations(state)
+        else:
+            suggestions = self._static_recommendations(state)
+            print("[AdvisorAgent] ✅ Static recommendations applied.")
+
+        state.suggestions = suggestions
+        return state

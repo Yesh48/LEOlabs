@@ -2,54 +2,16 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "leo-core.fullname" . }}-cron
-  labels:
-    {{- include "leo-core.labels" . | nindent 4 }}
+  name: leo-core-daily
 spec:
   schedule: {{ .Values.cronjob.schedule | quote }}
   jobTemplate:
     spec:
       template:
-        metadata:
-          labels:
-            {{- include "leo-core.selectorLabels" . | nindent 12 }}
         spec:
           restartPolicy: OnFailure
-          {{- $postgresEnabled := .Values.db.postgres.enabled }}
           containers:
-            - name: audit
+            - name: leo-core-cron
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-              imagePullPolicy: {{ .Values.image.pullPolicy }}
-              env:
-                - name: OPENAI_API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: {{ include "leo-core.fullname" . }}-secrets
-                      key: OPENAI_API_KEY
-                - name: LEO_DB_ENGINE
-                  value: {{ .Values.db.engine | quote }}
-                - name: POSTGRES_ENABLED
-                  value: {{ ternary "true" "false" $postgresEnabled | quote }}
-                - name: LEO_DB_PATH
-                  value: "/tmp/leo.db"
-                - name: LEO_DB_HOST
-                  value: {{ ternary (printf "%s-postgresql" (include "leo-core.fullname" .)) .Values.db.postgres.host $postgresEnabled | quote }}
-                - name: LEO_DB_PORT
-                  value: {{ .Values.db.postgres.port | quote }}
-                - name: LEO_DB_USER
-                  value: {{ .Values.db.postgres.user | quote }}
-                - name: LEO_DB_NAME
-                  value: {{ .Values.db.postgres.database | quote }}
-                - name: LEO_DB_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: {{ include "leo-core.fullname" . }}-secrets
-                      key: LEO_DB_PASSWORD
-              command:
-                - /bin/sh
-                - -c
-                - >-
-                  for url in {{ join " " .Values.cronjob.urls }}; do
-                    python cli.py audit "$url" || true;
-                  done
+              command: ["python", "cli.py", "audit", "https://openai.com"]
 {{- end }}

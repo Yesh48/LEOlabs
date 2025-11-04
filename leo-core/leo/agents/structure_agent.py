@@ -1,28 +1,49 @@
-"""Structure agent computes markup-related metrics."""
-from __future__ import annotations
+"""
+leo/agents/structure_agent.py
+Analyzes HTML structure quality — headings, metadata, alt text, and links.
+Produces a structure score (0–100).
+"""
 
-from ..state import LeoState
-from ..utils.html_utils import parse_html
-from ..utils.metrics_utils import normalize_count
-
-
-def run(state: LeoState) -> LeoState:
-    """Evaluate structured markup and populate structure metric."""
-    soup = parse_html(state.html or "")
-    metrics = dict(state.metrics)
-
-    meta_tags = soup.find_all("meta")
-    schema_tags = soup.find_all(attrs={"itemtype": True})
-    og_tags = [tag for tag in meta_tags if (tag.get("property") or "").startswith("og:")]
-
-    meta_score = normalize_count(len(meta_tags), max_expected=20)
-    schema_score = normalize_count(len(schema_tags), max_expected=10)
-    og_score = normalize_count(len(og_tags), max_expected=10)
-
-    structure_score = round((meta_score + schema_score + og_score) / 3.0, 4)
-    metrics["structure"] = structure_score
-
-    return state.model_copy(update={"metrics": metrics})
+from bs4 import BeautifulSoup
+from leo.state import LeoState
 
 
-__all__ = ["run"]
+class StructureAgent:
+    """Analyze the structural health of the website."""
+
+    def run(self, state: LeoState) -> LeoState:
+        if not state.html:
+            print("[StructureAgent] ⚠️ No HTML found — skipping structural analysis.")
+            state.metrics["structure"] = 0.0
+            return state
+
+        print("[StructureAgent] Analyzing HTML structure...")
+        soup = BeautifulSoup(state.html, "html.parser")
+
+        # Core structural elements
+        headings = len(soup.find_all(["h1", "h2", "h3"]))
+        metas = len(soup.find_all("meta"))
+        images = soup.find_all("img")
+        links = soup.find_all("a", href=True)
+
+        # Quality checks
+        alt_missing = sum(1 for img in images if not img.get("alt"))
+        link_broken = sum(1 for a in links if not a["href"] or a["href"].startswith("#"))
+
+        total_images = len(images) or 1
+        total_links = len(links) or 1
+
+        alt_ratio = (total_images - alt_missing) / total_images
+        link_ratio = (total_links - link_broken) / total_links
+
+        # Simple weighted score
+        score = (
+            (min(headings, 10) / 10) * 0.25 +
+            (min(metas, 15) / 15) * 0.25 +
+            alt_ratio * 0.25 +
+            link_ratio * 0.25
+        ) * 100
+
+        state.metrics["structure"] = round(score, 2)
+        print(f"[StructureAgent] ✅ Structure score: {state.metrics['structure']}")
+        return state

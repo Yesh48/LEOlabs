@@ -1,23 +1,21 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
 CONFIG_DIR="$HOME/.leo"
 CONFIG_FILE="$CONFIG_DIR/config"
 
 mkdir -p "$CONFIG_DIR"
 
-echo "💡 Leo Core post-install"
-
-if [ -t 0 ]; then
-  read -r -p "Enter OpenAI API key (leave blank to skip): " OPENAI_KEY
-  if [ -n "$OPENAI_KEY" ]; then
-    cat > "$CONFIG_FILE" <<CONFIG
-OPENAI_API_KEY=$OPENAI_KEY
-CONFIG
-    echo "Saved OpenAI API key to $CONFIG_FILE"
-  else
-    echo "Skipped storing OpenAI API key."
-  fi
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "🔧 Setting up LEO Core configuration..."
+  read -p "Enter your OpenAI API key (or leave blank for offline mode): " KEY
+  echo "OPENAI_API_KEY=$KEY" > "$CONFIG_FILE"
+  echo "✅ Configuration saved to $CONFIG_FILE"
 else
-  echo "Non-interactive session detected; skipping API key prompt."
+  echo "ℹ️ Existing configuration found at $CONFIG_FILE"
 fi
+
+echo ""
+echo "🎉 LEO Core installation complete!"
+echo "You can now run audits like:"
+echo "  leo audit https://openai.com"

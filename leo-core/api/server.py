@@ -1,39 +1,52 @@
-"""FastAPI server exposing Leo Core functionality."""
-from __future__ import annotations
+"""
+api/server.py
+FastAPI service for LEO Core — exposes endpoints to run audits and retrieve results.
+"""
 
-from fastapi import FastAPI, HTTPException, Query
-
-from leo.db import get_database
+from fastapi import FastAPI, Query
 from leo.graph import run_pipeline
-from leo.utils.report_utils import state_to_report
+from leo.db import get_recent_scores
+from leo.state import LeoState
 
-app = FastAPI(title="Leo Core API", version="0.2.0")
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    get_database()
-
-
-@app.get("/healthz", tags=["system"])
-def healthcheck() -> dict[str, str]:
-    """Basic health check endpoint."""
-    summary = get_database().summary()
-    return {"status": "ok", "db_engine": summary["engine"]}
+app = FastAPI(
+    title="LEO Core API",
+    description="AI Visibility Scoring Engine (LangGraph + FastAPI)",
+    version="0.2.0",
+)
 
 
-@app.get("/audit", tags=["audit"])
-def audit(url: str = Query(..., description="URL to audit"), persist: bool = Query(True)) -> dict:
-    """Run the Leo pipeline on the provided URL and return the report."""
-    if not url:
-        raise HTTPException(status_code=400, detail="URL is required")
-
-    state = run_pipeline(url, persist=persist)
-    return state_to_report(state)
+@app.get("/healthz")
+def health_check():
+    """Simple liveness check."""
+    return {"status": "ok", "version": "0.2.0"}
 
 
-@app.get("/metrics", tags=["metrics"])
-def metrics(limit: int = Query(10, ge=1, le=100)) -> dict:
-    """Return stored metrics and recent scores."""
-    database = get_database()
-    return {"summary": database.summary(), "recent": database.recent_scores(limit=limit)}
+@app.get("/audit")
+def audit_url(url: str = Query(..., description="Target website URL to audit")):
+    """Run full LEO audit pipeline for a given URL."""
+    try:
+        result: LeoState = run_pipeline(url)
+        return {
+            "url": result.url,
+            "metrics": result.metrics,
+            "leo_rank": result.leo_rank,
+            "suggestions": result.suggestions,
+            "timestamp": result.timestamp,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/metrics")
+def get_metrics(limit: int = 10):
+    """Return recent audit scores."""
+    try:
+        rows = get_recent_scores(limit)
+        return {"results": [dict(row) for row in rows]}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("api.server:app", host="0.0.0.0", port=8000)

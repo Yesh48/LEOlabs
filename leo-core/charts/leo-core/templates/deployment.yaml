@@ -8,54 +8,30 @@ spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "leo-core.selectorLabels" . | nindent 6 }}
+      app: {{ include "leo-core.name" . }}
   template:
     metadata:
       labels:
-        {{- include "leo-core.selectorLabels" . | nindent 8 }}
+        app: {{ include "leo-core.name" . }}
     spec:
       containers:
-        - name: api
+        - name: leo-core
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
-              name: http
-          {{- $postgresEnabled := .Values.db.postgres.enabled }}
           env:
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "leo-core.fullname" . }}-secrets
-                  key: OPENAI_API_KEY
+                  name: leo-core-secret
+                  key: openai_api_key
             - name: LOG_LEVEL
               value: {{ .Values.env.LOG_LEVEL | quote }}
-            - name: LEO_DB_ENGINE
-              value: {{ .Values.db.engine | quote }}
-            - name: LEO_DB_PATH
-              value: "/tmp/leo.db"
-            - name: POSTGRES_ENABLED
-              value: {{ ternary "true" "false" $postgresEnabled | quote }}
-            - name: LEO_DB_HOST
-              value: {{ ternary (printf "%s-postgresql" (include "leo-core.fullname" .)) .Values.db.postgres.host $postgresEnabled | quote }}
-            - name: LEO_DB_USER
-              value: {{ .Values.db.postgres.user | quote }}
-            - name: LEO_DB_NAME
-              value: {{ .Values.db.postgres.database | quote }}
-            - name: LEO_DB_PORT
-              value: {{ .Values.db.postgres.port | quote }}
-            - name: LEO_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "leo-core.fullname" . }}-secrets
-                  key: LEO_DB_PASSWORD
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: http
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: http
+          command: ["python", "api/server.py"]
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
