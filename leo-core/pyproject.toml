@@ -23,5 +23,10 @@ dependencies = [
   "scikit-learn",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest",
+]
+
 [project.scripts]
 leo = "cli:app"

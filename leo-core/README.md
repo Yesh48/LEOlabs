@@ -1,6 +1,6 @@
 # Leo Core
 
-Leo Core is the foundational service for **LeoRank**, an AI-driven visibility scoring platform built on LangGraph agent pipelines. This repository ships version 0.1.0 of the core scoring engine, providing a unified CLI, REST API, Docker image, and Helm chart for Kubernetes deployments.
+Leo Core is the foundational service for **LeoRank**, an AI-driven visibility scoring platform built on a LangGraph agent pipeline. This repository ships version 0.1.0 of the core scoring engine, providing a unified CLI, REST API, Docker image, and Helm chart for Kubernetes deployments.
 
 ## Features
 - 🕸️ Multi-agent pipeline that crawls, analyses structure, evaluates semantic coherence, scores pages, and produces advisor suggestions.
@@ -15,7 +15,7 @@ The Leo pipeline is orchestrated by LangGraph and progresses through the followi
 4. **Scoring Agent** – Combines metrics into a 0-100 LeoRank value.
 5. **Advisor Agent** – Emits actionable recommendations for improving visibility.
 
-All state is tracked using the `LeoState` Pydantic model, enabling consistent serialization and validation across surfaces.
+All state is tracked using the `LeoState` Pydantic model, enabling consistent serialization and validation across surfaces. Metric weights, formulas, and sample outputs are documented in [`specs/leo-specs.yml`](specs/leo-specs.yml) for transparency.
 
 ## Getting Started
 Clone the repository and create a Python virtual environment, then install dependencies:
@@ -61,15 +61,19 @@ helm install leo-core charts/leo-core -n leo
 
 Override configuration values as needed via `values.yaml` or `--set` flags.
 
+### Tests
+Install optional testing dependencies and run the automated checks:
+
+```bash
+pip install .[test]
+pytest
+```
+
 ## Example Output
 Sample report (truncated) stored at `examples/sample_report.json` shows the JSON payload produced by the pipeline, including structure and semantic metrics plus the aggregated LeoRank score.
 
 ## Contributing
-1. Fork the repository and create feature branches from `main`.
-2. Follow existing coding conventions and ensure lint/test suites pass.
-3. Submit a pull request describing your changes, test coverage, and deployment impact.
-
-Issues and feature requests are welcome via GitHub.
+We welcome community contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on project setup, coding standards, and pull request expectations.
 
 ## License
-This project is released under the Apache 2.0 License. See `LICENSE` (to be added) for details.
+This project is released under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
