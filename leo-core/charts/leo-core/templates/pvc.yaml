@@ -1,0 +1,14 @@
+{{- if and .Values.db.postgres.enabled .Values.db.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "leo-core.fullname" . }}-postgres
+  labels:
+    {{- include "leo-core.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+{{- end }}

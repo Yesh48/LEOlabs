@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "leo-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Leo Core LangGraph agents for LeoRank visibility scoring"
 authors = [
   {name = "Leo Labs"}
@@ -21,6 +21,8 @@ dependencies = [
   "pydantic",
   "numpy",
   "scikit-learn",
+  "openai",
+  "psycopg2-binary",
 ]
 
 [project.optional-dependencies]

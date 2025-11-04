@@ -1,0 +1,35 @@
+{{- if .Values.cronjob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "leo-core.fullname" . }}-cron
+  labels:
+    {{- include "leo-core.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronjob.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "leo-core.selectorLabels" . | nindent 12 }}
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: audit
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              env:
+                - name: OPENAI_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "leo-core.fullname" . }}-secrets
+                      key: OPENAI_API_KEY
+              command:
+                - /bin/sh
+                - -c
+                - >-
+                  for url in {{ join " " .Values.cronjob.urls }}; do
+                    python cli.py audit "$url" || true;
+                  done
+{{- end }}

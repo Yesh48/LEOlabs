@@ -6,6 +6,7 @@ from typing import TypedDict
 from langgraph.graph import END, StateGraph
 
 from .agents import advisor_agent, crawler_agent, scoring_agent, semantic_agent, structure_agent
+from .db import get_database
 from .state import LeoState
 
 
@@ -70,4 +71,13 @@ def run_graph(url: str) -> LeoState:
     return result["leo_state"]
 
 
-__all__ = ["build_graph", "get_compiled_graph", "run_graph", "GraphState"]
+def run_audit(url: str, persist: bool = True) -> LeoState:
+    """Run the pipeline and optionally persist the resulting score."""
+
+    state = run_graph(url)
+    if persist and state.leo_rank is not None:
+        get_database().record_score(url=url, rank=float(state.leo_rank))
+    return state
+
+
+__all__ = ["build_graph", "get_compiled_graph", "run_graph", "run_audit", "GraphState"]

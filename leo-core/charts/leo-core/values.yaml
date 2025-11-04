@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/leo-labs/leo-core
-  tag: "0.1.0"
+  tag: "0.2.0"
   pullPolicy: IfNotPresent
 
 service:
@@ -11,6 +11,34 @@ service:
 
 env:
   OPENAI_API_KEY: ""
+  LOG_LEVEL: "INFO"
+
+db:
+  engine: sqlite
+  persistence:
+    enabled: false
+  postgres:
+    enabled: false
+    user: leo
+    password: leo123
+    database: leodb
+    host: leo-postgres
+    port: 5432
+
+mcp:
+  enabled: true
+  port: 8800
+
+cronjob:
+  enabled: true
+  schedule: "0 3 * * *"
+  urls:
+    - https://openai.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
 ingress:
   enabled: true

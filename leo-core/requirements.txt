@@ -7,3 +7,5 @@ beautifulsoup4
 pydantic
 numpy
 scikit-learn
+openai
+psycopg2-binary

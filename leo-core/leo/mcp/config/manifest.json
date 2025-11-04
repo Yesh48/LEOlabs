@@ -1,0 +1,40 @@
+{
+  "name": "leo-core-mcp",
+  "version": "0.2.0",
+  "description": "Leo Core MCP server exposing audit and recent score tools.",
+  "tools": [
+    {
+      "name": "leo_audit",
+      "description": "Run a Leo audit for the provided URL and return the JSON report.",
+      "input_schema": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to audit"
+          }
+        }
+      }
+    },
+    {
+      "name": "leo_recent",
+      "description": "Return the most recent stored LeoRank scores.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of records to return",
+            "default": 5
+          }
+        }
+      }
+    }
+  ],
+  "transport": {
+    "type": "tcp",
+    "host": "0.0.0.0",
+    "port": 8800
+  }
+}

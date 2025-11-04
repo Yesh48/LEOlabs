@@ -1,0 +1,13 @@
+{{- if .Values.db.postgres.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "leo-core.fullname" . }}-postgres-config
+  labels:
+    {{- include "leo-core.labels" . | nindent 4 }}
+data:
+  POSTGRES_HOST: {{ ternary (printf "%s-postgresql" (include "leo-core.fullname" .)) .Values.db.postgres.host .Values.db.postgres.enabled | quote }}
+  POSTGRES_DATABASE: {{ .Values.db.postgres.database | quote }}
+  POSTGRES_USER: {{ .Values.db.postgres.user | quote }}
+  POSTGRES_PORT: {{ .Values.db.postgres.port | quote }}
+{{- end }}

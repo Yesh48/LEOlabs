@@ -10,7 +10,7 @@ from ..state import LeoState
 from ..utils.html_utils import extract_visible_text
 
 
-USER_AGENT = "LeoCoreBot/0.1 (+https://github.com/leo-labs/leo-core)"
+USER_AGENT = "LeoCoreBot/0.2 (+https://github.com/leo-labs/leo-core)"
 
 
 def _fetch(url: str, timeout: int = 10) -> Optional[Response]:
