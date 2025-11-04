@@ -5,6 +5,7 @@ def test_database_initialises_sqlite(tmp_path, monkeypatch):
     db_path = tmp_path / "leo-test.db"
     monkeypatch.setenv("LEO_DB_ENGINE", "sqlite")
     monkeypatch.setenv("LEO_DB_PATH", str(db_path))
+    monkeypatch.delenv("POSTGRES_ENABLED", raising=False)
 
     database = Database()
     database.init()
@@ -12,6 +13,7 @@ def test_database_initialises_sqlite(tmp_path, monkeypatch):
 
     recent = database.recent_scores(limit=1)
     assert recent[0]["url"] == "https://example.com"
+    assert "id" in recent[0]
     summary = database.summary()
     assert summary["count"] >= 1
     assert summary["engine"] == "sqlite"

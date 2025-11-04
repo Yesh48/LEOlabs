@@ -14,6 +14,16 @@ def normalize_count(count: int, max_expected: int = 10) -> float:
     return max(0.0, min(count / float(max_expected), 1.0))
 
 
+def text_richness(text: str, baseline: int = 2000) -> float:
+    """Estimate textual richness as a function of length."""
+    if baseline <= 0:
+        return 0.0
+    length = len(text.strip())
+    if length <= 0:
+        return 0.0
+    return max(0.0, min(length / float(baseline), 1.0))
+
+
 def chunk_text(text: str, chunk_size: int = 500) -> List[str]:
     """Split text into roughly equal sized chunks."""
     if not text:
@@ -54,9 +64,26 @@ def average_cosine_similarity(embeddings: np.ndarray) -> float:
     return float(np.clip(values.mean(), 0.0, 1.0))
 
 
+def compute_retrieval_score(
+    text: str,
+    heading_count: int,
+    anchor_count: int,
+) -> float:
+    """Combine retrieval-oriented heuristics into a 0-1 score."""
+
+    richness = text_richness(text, baseline=3000)
+    heading_signal = normalize_count(heading_count, max_expected=12)
+    anchor_signal = normalize_count(anchor_count, max_expected=60)
+
+    score = (0.5 * richness) + (0.3 * heading_signal) + (0.2 * anchor_signal)
+    return float(np.clip(score, 0.0, 1.0))
+
+
 __all__ = [
     "normalize_count",
     "chunk_text",
     "embed_texts",
     "average_cosine_similarity",
+    "text_richness",
+    "compute_retrieval_score",
 ]

@@ -23,6 +23,7 @@ dependencies = [
   "scikit-learn",
   "openai",
   "psycopg2-binary",
+  "pyyaml",
 ]
 
 [project.optional-dependencies]

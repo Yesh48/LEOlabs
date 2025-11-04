@@ -1,79 +1,125 @@
-# Leo Core
+# Leo Core v0.2 – AI Visibility Scoring Engine
 
-Leo Core is the foundational service for **LeoRank**, an AI-driven visibility scoring platform built on a LangGraph agent pipeline. This repository ships version 0.1.0 of the core scoring engine, providing a unified CLI, REST API, Docker image, and Helm chart for Kubernetes deployments.
+Leo Core is the reference implementation of the **LeoRank** visibility model. It orchestrates a LangGraph pipeline of specialist agents that crawl a website, measure structural readiness, evaluate semantic coherence, and surface GPT-powered guidance for improving Large Language Model visibility.
 
-## Features
-- 🕸️ Multi-agent pipeline that crawls, analyses structure, evaluates semantic coherence, scores pages, and produces advisor suggestions.
-- 🛠️ Unified execution across CLI (`python cli.py audit <url>`), FastAPI (`uvicorn api.server:app`), Docker, and Helm deployments.
-- 📊 Deterministic stub embeddings and scoring suitable for local development without external API dependencies.
+Version **0.2.0** introduces production-grade persistence, Helm + Homebrew distribution, an MCP server for GPT integrations, and the fully weighted LeoRank formula.
 
-## Architecture
-The Leo pipeline is orchestrated by LangGraph and progresses through the following agents:
-1. **Crawler Agent** – Fetches remote HTML and extracts visible text.
-2. **Structure Agent** – Reviews markup quality (meta, OpenGraph, schema) and produces a normalized structure score.
-3. **Semantic Agent** – Splits content into manageable chunks, computes stub embeddings, and measures semantic consistency.
-4. **Scoring Agent** – Combines metrics into a 0-100 LeoRank value.
-5. **Advisor Agent** – Emits actionable recommendations for improving visibility.
+## Feature Highlights
 
-All state is tracked using the `LeoState` Pydantic model, enabling consistent serialization and validation across surfaces. Metric weights, formulas, and sample outputs are documented in [`specs/leo-specs.yml`](specs/leo-specs.yml) for transparency.
+- 🧠 **LangGraph pipeline** – Crawler → Structure → Semantic → Scoring → Advisor, all sharing a single `LeoState` snapshot.
+- 🧮 **Weighted scoring** – Configurable weights (`leo/config/weights.yml`) and retrieval heuristics combine into the official LeoRank computation.
+- 💾 **Database ready** – SQLite by default (`/tmp/leo.db`) with optional Postgres (`POSTGRES_ENABLED=true`), surfaced through the CLI, API, and MCP tools.
+- 🌐 **Multi-surface access** – Typer CLI, FastAPI service, Docker image, LangGraph runner, and MCP transport for GPT-native workflows.
+- ☸️ **Kubernetes friendly** – Helm chart with CronJob scheduling, optional Bitnami Postgres dependency, MCP sidecar, and OpenAI secret management.
+- 🍺 **Homebrew tap** – Installable via `brew install leo-core`, including a guided post-install script for storing API keys.
 
-## Getting Started
-Clone the repository and create a Python virtual environment, then install dependencies:
+## Pipeline Overview
+
+```text
+Crawler → Structure → Semantic → Scoring → Advisor
+```
+
+Each agent reads and writes a `LeoState` object so downstream logic has access to HTML, extracted text, computed metrics, and generated suggestions.
+
+## Quick Start
+
+Install Python requirements and run an audit locally:
 
 ```bash
 pip install -r requirements.txt
-```
-
-Run the CLI audit command:
-
-```bash
 python cli.py audit https://openai.com
 ```
 
-### API Server
-Start the FastAPI server with Uvicorn:
+### CLI Commands
 
 ```bash
-uvicorn api.server:app
+leo audit <url>         # run the full pipeline and print/save a report
+leo recent              # show the latest stored LeoRank entries
+leo serve               # launch the FastAPI server
+leo mcp                 # start the MCP server for GPT integrations
 ```
 
-Visit `http://localhost:8000/docs` for interactive documentation.
+Reports are saved to `examples/<slug>.json` by default; pass `--output` to override and `--no-persist` to skip database writes.
 
-### Docker
-Build a local Docker image:
+### FastAPI Service
 
 ```bash
-docker build -t leo-core:0.1.0 .
+uvicorn api.server:app --host 0.0.0.0 --port 8000
 ```
 
-Run the container (binding port 8000):
+Available endpoints:
+
+- `GET /audit?url=https://example.com` – run an on-demand audit (optional `persist=false`).
+- `GET /metrics` – summary statistics plus recent scores.
+- `GET /healthz` – readiness and DB engine information.
+
+### Database Configuration
+
+Environment variables control persistence:
+
+- `LEO_DB_ENGINE=sqlite|postgres`
+- `LEO_DB_PATH=/tmp/leo.db` (for SQLite)
+- `POSTGRES_ENABLED=true` to force Postgres mode
+- `LEO_DB_HOST`, `LEO_DB_PORT`, `LEO_DB_USER`, `LEO_DB_PASSWORD`, `LEO_DB_NAME`
+
+SQLite is stored on disk, while Postgres requires `psycopg2-binary` and the above credentials.
+
+### Docker Image
 
 ```bash
-docker run --rm -p 8000:8000 leo-core:0.1.0
+docker build -t leo-core:0.2.0 .
+docker run --rm -p 8000:8000 \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e LEO_DB_ENGINE=sqlite leo-core:0.2.0
 ```
 
 ### Helm Deployment
-Install the Helm chart into the `leo` namespace:
 
 ```bash
-helm install leo-core charts/leo-core -n leo
+helm install leo-core charts/leo-core -n leo --create-namespace
 ```
 
-Override configuration values as needed via `values.yaml` or `--set` flags.
+Key `values.yaml` sections:
 
-### Tests
-Install optional testing dependencies and run the automated checks:
+- `image.*` – container registry coordinates.
+- `env.OPENAI_API_KEY` – optional pre-populated secret value.
+- `db.*` – switch between SQLite and Postgres (with optional PVCs).
+- `cronjob.*` – schedule daily audits across a list of URLs.
+- `mcp.*` – enable/disable the MCP deployment and port.
+
+`charts/leo-core/templates/cronjob.yaml` runs the CLI nightly to keep metrics fresh, while `postgres-dependency.yaml` wires the Bitnami Postgres subchart when enabled.
+
+### Homebrew Installation
+
+```bash
+brew tap yesh48/leo
+brew install leo-core
+export OPENAI_API_KEY="sk-..."
+leo audit https://openai.com
+```
+
+The post-install hook stores your API key at `~/.leo/config` for convenient reuse.
+
+### MCP Transport
+
+`leo.mcp.server` hosts a TCP MCP endpoint with two tools:
+
+- `leo_audit` – trigger a LangGraph audit and return the report JSON.
+- `leo_recent` – fetch persisted scores.
+
+Run via `leo mcp --host 0.0.0.0 --port 8800` or deploy the Helm subchart.
+
+### Testing
 
 ```bash
 pip install .[test]
 pytest
 ```
 
-## Example Output
-Sample report (truncated) stored at `examples/sample_report.json` shows the JSON payload produced by the pipeline, including structure and semantic metrics plus the aggregated LeoRank score.
+### Contributing
 
-## Contributing
-We welcome community contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on project setup, coding standards, and pull request expectations.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards, development workflow, and release guidelines.
 
-## License
-This project is released under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
+### License
+
+Apache 2.0 – refer to [LICENSE](LICENSE) for the full text.

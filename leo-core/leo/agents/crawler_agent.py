@@ -28,7 +28,7 @@ def run(state: LeoState) -> LeoState:
     html = response.text if response is not None else None
     text = extract_visible_text(html) if html else None
 
-    return state.copy(update={"html": html, "text": text})
+    return state.model_copy(update={"html": html, "text": text})
 
 
 __all__ = ["run"]

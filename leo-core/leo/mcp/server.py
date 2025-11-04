@@ -6,7 +6,7 @@ import json
 from typing import Any, Dict
 
 from leo.db import get_database
-from leo.graph import run_audit
+from leo.graph import run_pipeline
 from leo.utils.report_utils import state_to_report
 
 
@@ -22,7 +22,7 @@ async def _handle_request(message: Dict[str, Any]) -> Dict[str, Any]:
         url = params.get("url")
         if not url:
             raise _RequestError("Missing 'url' parameter")
-        state = run_audit(url)
+        state = run_pipeline(url)
         return state_to_report(state)
 
     if method == "leo_recent":

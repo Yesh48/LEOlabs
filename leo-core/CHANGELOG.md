@@ -1,10 +1,8 @@
 # Changelog
 
 ## v0.2.0
-- Added MCP TCP server exposing `leo_audit` and `leo_recent` tools with manifest metadata.
-- Introduced SQLite/Postgres persistence layer with CLI/API helpers for recent metrics.
-- Expanded Helm chart: optional Postgres dependency, MCP deployment, CronJob, PVC, and configurable environment values.
-- Added Homebrew tap assets for macOS installation (`brew/leo-core.rb`, `brew/postinstall.sh`).
-- Updated CLI with `recent`, `serve`, and `mcp` commands alongside improved Typer UX.
-- Enriched FastAPI service with `/healthz` and `/metrics` endpoints plus DB auto-initialisation.
-- Refreshed documentation, sample outputs, and tests for the 0.2.0 release.
+- Delivered full LangGraph production pipeline with crawler, structure, semantic, scoring, and advisor agents plus retrieval-aware LeoRank weights.
+- Persist scores automatically from the ScoringAgent with SQLite default storage and optional Postgres via `POSTGRES_ENABLED`.
+- Expanded FastAPI service, Typer CLI, and LangGraph helpers to expose `run_pipeline`, `/metrics`, `/healthz`, and MCP transport endpoints.
+- Added MCP TCP server manifest, Helm chart enhancements (CronJob, MCP deployment, optional Bitnami Postgres dependency, PVCs, OpenAI secrets), and Homebrew installer assets.
+- Regenerated documentation (`README.md`, `Agents.md`) and sample reports to reflect the 0.2 visibility scoring engine.
