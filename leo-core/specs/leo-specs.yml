@@ -1,0 +1,30 @@
+version: 0.1.0
+metrics:
+  structure:
+    weight: 0.5
+    description: |
+      Measures markup completeness using counts of <meta>, schema.org, and Open Graph tags.
+      Normalized on a 0-1 scale via observed tag counts divided by expected maxima.
+  semantic:
+    weight: 0.5
+    description: |
+      Scores semantic cohesion by chunking on-page text, generating deterministic stub embeddings,
+      and averaging pairwise cosine similarities. Higher values indicate consistent topical focus.
+  authority:
+    weight: 0.0
+    description: |
+      Placeholder for future backlink authority metric (not yet implemented in v0.1.0).
+  freshness:
+    weight: 0.0
+    description: |
+      Placeholder for planned content freshness metric (pending crawler enhancements).
+formulas:
+  leo_rank: "round(100 * (0.5 * metrics.structure + 0.5 * metrics.semantic), 2)"
+examples:
+  - url: https://example.com
+    metrics:
+      structure: 0.42
+      semantic: 0.85
+    leo_rank: 63.5
+    notes: |
+      Example.com demonstrates strong semantic alignment with modest structured data coverage.
