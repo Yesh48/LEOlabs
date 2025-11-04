@@ -1,140 +1,232 @@
-# === PROJECT INSTRUCTION ===
-You are an AI engineer setting up version 0.1 of an open-source project called **Leo Core** —
-the foundation for “AI Visibility Scoring (LeoRank)” using LangGraph agents.
+# 🧠 LEO Core — Agents Specification (v0.2)
 
-Generate every file and folder listed below with working starter code.
-All components must run locally (`python cli.py audit <url>`), via API (`uvicorn api.server:app`),
-in Docker, and be deployable with Helm (`helm install leo-core charts/leo-core -n leo`).
+> Part of the **LEO Labs Open-Source Project**  
+> Purpose: Define the modular LangGraph pipeline used to compute **AI Visibility Scores** for websites.
 
--------------------------------------------------
-📦  REPOSITORY STRUCTURE
--------------------------------------------------
-leo-core/
-├── leo/
-│   ├── __init__.py
-│   ├── state.py
-│   ├── graph.py
-│   ├── agents/
-│   │   ├── __init__.py
-│   │   ├── crawler_agent.py
-│   │   ├── structure_agent.py
-│   │   ├── semantic_agent.py
-│   │   ├── scoring_agent.py
-│   │   └── advisor_agent.py
-│   ├── utils/
-│   │   ├── html_utils.py
-│   │   ├── metrics_utils.py
-│   │   └── report_utils.py
-│   └── config/weights.yml
-│
-├── api/
-│   ├── __init__.py
-│   └── server.py
-│
-├── charts/leo-core/
-│   ├── Chart.yaml
-│   ├── values.yaml
-│   ├── .helmignore
-│   └── templates/
-│       ├── deployment.yaml
-│       ├── service.yaml
-│       ├── ingress.yaml
-│       ├── configmap.yaml
-│       └── secret.yaml
-│
-├── cli.py
-├── Dockerfile
-├── requirements.txt
-├── pyproject.toml
-├── README.md
-└── examples/sample_report.json
+---
 
--------------------------------------------------
-🧩  FILE REQUIREMENTS
--------------------------------------------------
+## ⚙️ Overview
 
-## leo/state.py
-Pydantic class `LeoState`:
-- url: str  
-- html: Optional[str]  
-- text: Optional[str]  
-- metrics: Dict[str, float]  
-- leo_rank: Optional[float]  
-- suggestions: List[str]
+**LEO Core** analyzes how easily Large Language Models (LLMs) can interpret and retrieve information from a website.
 
-## leo/graph.py
-Create LangGraph pipeline:
-crawl → structure → semantic → score → advisor → END.
+The system uses a **LangGraph agent pipeline** that processes input URLs, evaluates their structural and semantic clarity, computes a composite **LeoRank**, and generates AI-driven improvement suggestions.
 
-## agents
-- crawler_agent.py → fetch HTML & extract text with BeautifulSoup.
-- structure_agent.py → count meta/schema/og tags → normalized 0–1 score.
-- semantic_agent.py → split text into 500-char chunks, embed with stub (no API yet),
-  compute cosine similarity → `metrics["semantic"]`.
-- scoring_agent.py → `leo_rank = round(100*(0.5*structure + 0.5*semantic),2)`.
-- advisor_agent.py → dummy static suggestions (3 strings).
+### 🧩 Pipeline Diagram
 
-## cli.py
-Use **Typer** CLI:
-`leo audit <url>` runs the graph, prints and saves JSON report.
+```mermaid
+graph LR
+    A[CrawlerAgent] --> B[StructureAgent]
+    B --> C[SemanticAgent]
+    C --> D[ScoringAgent]
+    D --> E[AdvisorAgent]
+    E --> F[(Database)]
+```
 
-## api/server.py
-FastAPI `/audit?url=` endpoint returning LeoRank JSON.
+### 🧮 Scoring Formula
 
-## requirements.txt
-langgraph, typer, fastapi, uvicorn, requests, beautifulsoup4, pydantic, numpy, scikit-learn.
+```
+LeoRank = 100 * (0.4 * structure + 0.4 * semantic + 0.2 * retrieval)
+```
 
-## Dockerfile
-FROM python:3.11-slim  
-WORKDIR /app  
-COPY . .  
-RUN pip install -r requirements.txt  
-CMD ["uvicorn","api.server:app","--host","0.0.0.0","--port","8000"]
+---
 
-## charts/leo-core/Chart.yaml
-apiVersion: v2  
-name: leo-core  
-description: Helm chart for Leo Core  
-version: 0.1.0  
-appVersion: 0.1.0
+## 🧱 Shared State (`LeoState`)
 
-## charts/leo-core/values.yaml
-replicaCount: 1  
-image.repository: ghcr.io/leo-labs/leo-core  
-image.tag: "0.1.0"  
-service.port: 8000  
-env.OPENAI_API_KEY: ""  
-ingress.enabled: true  
-ingress.className: nginx  
-ingress.hosts[0].host: leo.local  
-ingress.hosts[0].paths[0]: "/"
+Each agent passes and mutates the shared `LeoState` object.
 
-## templates/deployment.yaml
-K8s Deployment mounting secret `leo-core-secrets`,
-passing OPENAI_API_KEY env var, exposing port 8000.
+| Field | Type | Description |
+|--------|------|-------------|
+| `url` | `str` | Website URL being analyzed |
+| `html` | `str` | Raw HTML fetched by the crawler |
+| `text` | `str` | Cleaned readable text |
+| `metrics` | `dict[str,float]` | Structural and semantic metrics |
+| `leo_rank` | `float` | Final visibility score |
+| `suggestions` | `list[str]` | AI-generated recommendations |
 
-## templates/service.yaml
-ClusterIP Service on port 8000.
+---
 
-## templates/secret.yaml
-Secret with key OPENAI_API_KEY from values.
+## 🕸️ 1. CrawlerAgent
 
-## templates/ingress.yaml
-Optional ingress enabled via values.
+**Purpose:**  
+Fetches and parses the target website’s HTML.
 
-## README.md
-Describe purpose, architecture, usage examples, and contribution guide.
-Include:
-1️⃣ `python cli.py audit https://openai.com`
-2️⃣ `docker build -t leo-core:0.1.0 .`
-3️⃣ `helm install leo-core charts/leo-core -n leo`
+**Logic:**
+- Uses `requests` with headers & timeouts.
+- Parses HTML via `BeautifulSoup`.
+- Removes scripts, styles, and comments.
+- Extracts readable text using heuristic filters.
 
--------------------------------------------------
-✅  EXPECTED BEHAVIOR
--------------------------------------------------
-- Running CLI prints JSON with dummy LeoRank (0–100).
-- API endpoint `/audit?url=` returns same JSON.
-- Docker container serves API on :8000.
-- Helm templates lint cleanly (`helm lint charts/leo-core` passes).
+**Outputs:**  
+`state.html`, `state.text` populated.
 
-# === END OF INSTRUCTION ===
+**Metrics Affected:**  
+None directly.
+
+---
+
+## 🧱 2. StructureAgent
+
+**Purpose:**  
+Evaluate the HTML structure for clarity and metadata richness.
+
+**Logic:**
+- Counts `<meta>`, `<title>`, `<h1-h3>`, and `<schema.org>` tags.
+- Checks for OpenGraph and Twitter card tags.
+- Computes normalized score:
+  ```
+  structure_score = (meta_tags + og_tags + schema_tags) / normalization_factor
+  ```
+
+**Outputs:**  
+`state.metrics["structure"]`
+
+---
+
+## 🧠 3. SemanticAgent
+
+**Purpose:**  
+Quantify semantic coherence and content accessibility for LLMs.
+
+**Logic:**
+- Splits text into paragraphs.
+- Uses `openai.embeddings.create` to generate embeddings.
+- Computes cosine similarity between consecutive embeddings.
+- Produces `semantic_score = average_similarity`.
+
+**LLM Calls:**  
+Embeddings API (1 per 2–5 paragraphs, batched).
+
+**Outputs:**  
+`state.metrics["semantic"]`
+
+---
+
+## 🔢 4. ScoringAgent
+
+**Purpose:**  
+Aggregate metrics and compute the final LeoRank.
+
+**Logic:**
+- Retrieves weights from `/leo/config/weights.yml`
+- Applies formula:
+  ```
+  leo_rank = 100 * (0.4 * structure + 0.4 * semantic + 0.2 * retrieval)
+  ```
+- Saves result in DB via `save_score(url, leo_rank)`.
+
+**Outputs:**  
+`state.leo_rank`
+
+---
+
+## 💬 5. AdvisorAgent
+
+**Purpose:**  
+Provide optimization suggestions to improve LLM visibility.
+
+**Logic:**
+- If `OPENAI_API_KEY` available:
+  - Calls GPT-4-mini with a concise prompt summarizing the site’s content and metrics.
+  - Asks for actionable improvement steps.
+- Else:
+  - Generates static heuristic suggestions (e.g., “Add schema.org metadata”).
+- Appends output to `state.suggestions`.
+
+**Outputs:**  
+`state.suggestions` list populated.
+
+---
+
+## 🗃️ Database Layer (Integration Agent)
+
+**Purpose:**  
+Persist results and enable analytics.
+
+**Implementation:**  
+SQLite by default, optional Postgres via Helm.
+
+| Function | Description |
+|-----------|--------------|
+| `init_db()` | Creates tables if missing |
+| `save_score(url, rank)` | Persists the score and timestamp |
+| `get_recent_scores(limit)` | Fetches latest results |
+
+---
+
+## 🌐 MCP Server (Model Context Protocol)
+
+**Purpose:**  
+Expose LEO Core as a **GPT-native toolset** for external LLMs and agents.
+
+**Endpoints:**
+- `/tools/leo_audit?url=` — runs audit and returns report.
+- `/tools/leo_recent` — retrieves recent scores.
+
+**Manifest (`leo/mcp/config/manifest.json`):**
+```json
+{
+  "schema_version": "1.0",
+  "name": "leo-mcp",
+  "description": "Run Leo audits and retrieve AI visibility insights.",
+  "tools": {
+    "leo_audit": {"input_schema": {"url": "string"}},
+    "leo_recent": {"input_schema": {}}
+  }
+}
+```
+
+---
+
+## ☸️ Deployment Agents
+
+**Helm Components:**
+- `deployment.yaml` — FastAPI service  
+- `mcp-deployment.yaml` — MCP microservice  
+- `cronjob.yaml` — nightly re-audit task  
+- `secret.yaml` — injects `OPENAI_API_KEY`  
+- `postgres-dependency.yaml` — optional Postgres subchart  
+
+**Homebrew Components:**
+- `brew/leo-core.rb` — installation formula  
+- `brew/postinstall.sh` — stores OpenAI API key  
+
+---
+
+## 🔍 Testing and Validation
+
+- `tests/test_pipeline.py` — verifies pipeline from crawl to rank.  
+- `tests/test_api.py` — validates API endpoints.  
+- `tests/test_agents.py` — ensures each agent modifies `LeoState` correctly.
+
+---
+
+## 🧭 Future Extensions
+
+| Planned | Description |
+|----------|-------------|
+| **Kafka Integration** | Stream audit logs to external analytics pipeline |
+| **Rynions AI Agents** | Persona-based analysis advisors |
+| **Dashboard UI** | Visual scoring leaderboard |
+| **OpenSearch Export** | Searchable visibility dataset |
+
+---
+
+## 🧾 Version
+**v0.2.0**  
+Includes:  
+- Full LangGraph agent logic  
+- Database layer  
+- MCP server integration  
+- Helm + Brew deploy support  
+- Auto-documentation (this file)
+
+---
+
+## 📜 License
+Licensed under **MIT License** — open-source and free to modify for academic or commercial use.
+
+---
+
+### ✅ Maintainer Note
+This `Agents.md` must remain synchronized with code versions.  
+When adding or modifying agents, update this file to describe new logic and LLM interactions before merging into `main`.
