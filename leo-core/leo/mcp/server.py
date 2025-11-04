@@ -1,4 +1,4 @@
-"""Minimal MCP-compatible TCP server for Leo Core."""
+"""Minimal MCP TCP server exposing Leo Core tools."""
 from __future__ import annotations
 
 import asyncio
@@ -72,3 +72,4 @@ def serve(host: str = "0.0.0.0", port: int = 8800) -> None:
 
 
 __all__ = ["serve"]
+

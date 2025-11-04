@@ -36,3 +36,39 @@ jobs:
 
       - name: Helm lint
         run: helm lint charts/leo-core
+
+      - name: Extract project version
+        id: project_version
+        run: |
+          VERSION=$(python - <<'PY'
+          import tomllib
+
+          with open('pyproject.toml', 'rb') as fh:
+              data = tomllib.load(fh)
+          print(data['project']['version'])
+          PY
+          )
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Create tag
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.project_version.outputs.version }}';
+            if (!version) {
+              core.setFailed('Version not found');
+            }
+            const tag = version.startsWith('v') ? version : `v${version}`;
+            const ref = `refs/tags/${tag}`;
+            const { data: tags } = await github.repos.listTags({ ...context.repo, per_page: 100 });
+            if (tags.some(t => t.name === tag)) {
+              core.info(`Tag ${tag} already exists`);
+              return;
+            }
+            await github.git.createRef({
+              ...context.repo,
+              ref,
+              sha: context.sha,
+            });
