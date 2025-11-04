@@ -1,6 +1,10 @@
-"""Leo Core package."""
-from .db import get_database
-from .graph import run_audit, run_graph, run_pipeline
-from .state import LeoState
+"""
+leo package initializer
+Exposes core imports for convenience.
+"""
 
-__all__ = ["LeoState", "run_graph", "run_pipeline", "run_audit", "get_database"]
+from .db import get_connection, save_score, get_recent_scores
+from .state import LeoState
+from .graph import run_pipeline
+
+__all__ = ["LeoState", "run_pipeline", "get_connection", "save_score", "get_recent_scores"]

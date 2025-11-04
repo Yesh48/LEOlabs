@@ -1,68 +1,60 @@
-"""Semantic agent for evaluating content coherence."""
-from __future__ import annotations
+"""
+leo/agents/semantic_agent.py
+Analyzes semantic quality of visible text — readability, relevance, and
+embedding similarity if OpenAI API is available.
+"""
 
 import os
-from typing import Iterable, Optional
-
+import re
 import numpy as np
+from leo.state import LeoState
 
-try:  # pragma: no cover - optional dependency path
+try:
     import openai
-    from openai import OpenAIError
-except Exception:  # pragma: no cover - when openai isn't available at runtime
-    openai = None  # type: ignore
-    OpenAIError = Exception  # type: ignore
-
-from ..state import LeoState
-from ..utils.metrics_utils import average_cosine_similarity, chunk_text, embed_texts
-
-EMBEDDING_MODEL = os.getenv("LEO_EMBEDDING_MODEL", "text-embedding-3-small")
+except ImportError:
+    openai = None
 
 
-def _maybe_remote_embeddings(chunks: Iterable[str]) -> Optional[np.ndarray]:
-    if openai is None:
-        return None
-    chunk_list = list(chunks)
-    if not chunk_list:
-        return None
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return None
-    try:
-        openai.api_key = api_key
-        response = openai.embeddings.create(model=EMBEDDING_MODEL, input=chunk_list)
-        data = getattr(response, "data", None) or []
-        vector_list = []
-        for item in data:
-            embedding = getattr(item, "embedding", None)
-            if embedding is None and isinstance(item, dict):
-                embedding = item.get("embedding")
-            if embedding is None:
-                continue
-            vector_list.append(embedding)
-        if not vector_list:
-            return None
-        return np.array(vector_list, dtype=float)
-    except OpenAIError:
-        return None
-    except Exception:
-        return None
+class SemanticAgent:
+    """Evaluate text clarity, keyword density, and semantic cohesion."""
 
+    def __init__(self):
+        self.api_key = os.getenv("OPENAI_API_KEY", "")
+        if self.api_key and openai:
+            openai.api_key = self.api_key
 
-def run(state: LeoState) -> LeoState:
-    """Compute semantic consistency metric."""
-    chunks = chunk_text(state.text or "")
-    remote_embeddings = _maybe_remote_embeddings(chunks)
-    if remote_embeddings is not None and remote_embeddings.size > 0:
-        embeddings = remote_embeddings
-    else:
-        embeddings = embed_texts(chunks)
-    semantic_score = average_cosine_similarity(embeddings)
+    def _fallback_score(self, text: str) -> float:
+        """Offline stub for environments without API key."""
+        words = text.split()
+        avg_word_len = np.mean([len(w) for w in words]) if words else 0
+        keyword_density = len(re.findall(r"(ai|ml|data|cloud|intelligence|automation)", text.lower()))
+        # normalize
+        score = min((avg_word_len * 5 + keyword_density * 10), 100)
+        return round(score, 2)
 
-    metrics = dict(state.metrics)
-    metrics["semantic"] = round(float(semantic_score), 4)
+    def run(self, state: LeoState) -> LeoState:
+        if not state.text:
+            print("[SemanticAgent] ⚠️ No text to analyze — skipping semantic stage.")
+            state.metrics["semantic"] = 0.0
+            return state
 
-    return state.model_copy(update={"metrics": metrics})
+        print("[SemanticAgent] Analyzing semantic content...")
 
+        # If API key exists, attempt embeddings
+        if self.api_key and openai:
+            try:
+                chunks = state.text[:4000]  # limit to fit model context
+                emb = openai.embeddings.create(input=chunks, model="text-embedding-3-small")
+                vector = np.array(emb.data[0].embedding)
+                cohesion = np.mean(vector[:128]) * 100
+                score = max(0.0, min(cohesion, 100))
+                print(f"[SemanticAgent] ✅ Online embedding analysis done. Score: {score:.2f}")
+            except Exception as e:
+                print(f"[SemanticAgent] ⚠️ OpenAI API failed — fallback mode ({e})")
+                score = self._fallback_score(state.text)
+        else:
+            score = self._fallback_score(state.text)
+            print(f"[SemanticAgent] ✅ Offline mode semantic score: {score}")
 
-__all__ = ["run"]
+        state.metrics["semantic"] = score
+        return state

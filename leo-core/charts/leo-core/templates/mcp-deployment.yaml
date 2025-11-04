@@ -2,77 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "leo-core.fullname" . }}-mcp
-  labels:
-    {{- include "leo-core.labels" . | nindent 4 }}
+  name: leo-core-mcp
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "leo-core.name" . }}-mcp
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      app: leo-core-mcp
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "leo-core.name" . }}-mcp
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        app: leo-core-mcp
     spec:
       containers:
-        - name: mcp
+        - name: leo-mcp
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - python
-            - cli.py
-            - mcp
-            - --host
-            - 0.0.0.0
-            - --port
-            - {{ .Values.mcp.port | quote }}
           ports:
             - containerPort: {{ .Values.mcp.port }}
-              name: mcp
-          {{- $postgresEnabled := .Values.db.postgres.enabled }}
-          env:
-            - name: OPENAI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "leo-core.fullname" . }}-secrets
-                  key: OPENAI_API_KEY
-            - name: LEO_DB_ENGINE
-              value: {{ .Values.db.engine | quote }}
-            - name: POSTGRES_ENABLED
-              value: {{ ternary "true" "false" $postgresEnabled | quote }}
-            - name: LEO_DB_PATH
-              value: "/tmp/leo.db"
-            - name: LEO_DB_HOST
-              value: {{ ternary (printf "%s-postgresql" (include "leo-core.fullname" .)) .Values.db.postgres.host $postgresEnabled | quote }}
-            - name: LEO_DB_PORT
-              value: {{ .Values.db.postgres.port | quote }}
-            - name: LEO_DB_USER
-              value: {{ .Values.db.postgres.user | quote }}
-            - name: LEO_DB_NAME
-              value: {{ .Values.db.postgres.database | quote }}
-            - name: LEO_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "leo-core.fullname" . }}-secrets
-                  key: LEO_DB_PASSWORD
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "leo-core.fullname" . }}-mcp
-  labels:
-    {{- include "leo-core.labels" . | nindent 4 }}
-spec:
-  type: ClusterIP
-  selector:
-    app.kubernetes.io/name: {{ include "leo-core.name" . }}-mcp
-    app.kubernetes.io/instance: {{ .Release.Name }}
-  ports:
-    - name: mcp
-      port: {{ .Values.mcp.port }}
-      targetPort: mcp
-      protocol: TCP
+          command: ["python", "cli.py", "mcp"]
 {{- end }}

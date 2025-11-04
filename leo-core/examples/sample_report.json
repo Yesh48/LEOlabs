@@ -1,17 +1,14 @@
 {
   "url": "https://openai.com",
   "metrics": {
-    "structure": 0.72,
-    "semantic": 0.81,
-    "retrieval": 0.59
+    "structure": 81.4,
+    "semantic": 78.9
   },
-  "leo_rank": 73.0,
+  "leo_rank": 80.2,
   "suggestions": [
-    "Expand schema.org coverage for product and FAQ content.",
-    "Tighten semantic clusters by linking related long-form articles.",
-    "Expose key conversion paths through contextual internal links."
+    "Ensure all images include alt attributes.",
+    "Add descriptive meta tags to improve clarity.",
+    "Expand structured content to include FAQs and schema.org tags."
   ],
-  "html_present": true,
-  "text_length": 4182,
-  "generated_at": "2024-07-15T00:00:00Z"
+  "timestamp": "2025-11-03T20:55:00Z"
 }

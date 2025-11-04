@@ -1,75 +1,63 @@
-"""Minimal MCP TCP server exposing Leo Core tools."""
-from __future__ import annotations
+"""
+leo/mcp/server.py
+Model Context Protocol (MCP) server to expose LEO Core tools for GPT-native access.
+"""
 
-import asyncio
 import json
-from typing import Any, Dict
-
-from leo.db import get_database
+import asyncio
 from leo.graph import run_pipeline
-from leo.utils.report_utils import state_to_report
+from leo.db import get_recent_scores
 
 
-class _RequestError(Exception):
-    """Internal error to signal invalid requests."""
+async def leo_audit(url: str) -> str:
+    """Run full LEO audit and return JSON result."""
+    state = run_pipeline(url)
+    return json.dumps({
+        "url": state.url,
+        "metrics": state.metrics,
+        "leo_rank": state.leo_rank,
+        "suggestions": state.suggestions,
+        "timestamp": state.timestamp,
+    })
 
 
-async def _handle_request(message: Dict[str, Any]) -> Dict[str, Any]:
-    method = message.get("method")
-    params = message.get("params", {})
-
-    if method == "leo_audit":
-        url = params.get("url")
-        if not url:
-            raise _RequestError("Missing 'url' parameter")
-        state = run_pipeline(url)
-        return state_to_report(state)
-
-    if method == "leo_recent":
-        limit = int(params.get("limit", 5))
-        return get_database().recent_scores(limit=limit)
-
-    raise _RequestError(f"Unknown method: {method}")
+async def leo_recent() -> str:
+    """Return recent scores from the DB as JSON."""
+    rows = get_recent_scores(10)
+    return json.dumps([dict(r) if isinstance(r, dict) else {"url": r[0], "rank": r[1], "timestamp": r[2]} for r in rows])
 
 
-async def _client_session(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    try:
-        while True:
-            data = await reader.readline()
-            if not data:
-                break
-            try:
-                message = json.loads(data.decode("utf-8"))
-            except json.JSONDecodeError:
-                response = {"error": "invalid_json"}
+async def handle_request(reader, writer):
+    """Minimal async socket server to process JSON MCP-style requests."""
+    while True:
+        data = await reader.readline()
+        if not data:
+            break
+        try:
+            request = json.loads(data.decode())
+            method = request.get("method")
+            params = request.get("params", {})
+
+            if method == "leo_audit":
+                result = await leo_audit(**params)
+            elif method == "leo_recent":
+                result = await leo_recent()
             else:
-                request_id = message.get("id")
-                try:
-                    result = await _handle_request(message)
-                    response = {"id": request_id, "result": result}
-                except _RequestError as exc:
-                    response = {"id": request_id, "error": str(exc)}
-                except Exception as exc:  # pragma: no cover - defensive
-                    response = {"id": request_id, "error": f"internal_error: {exc}"}
-            writer.write(json.dumps(response).encode("utf-8") + b"\n")
-            await writer.drain()
-    finally:
-        writer.close()
-        await writer.wait_closed()
+                result = json.dumps({"error": f"Unknown method {method}"})
+        except Exception as e:
+            result = json.dumps({"error": str(e)})
+
+        writer.write(result.encode() + b"\n")
+        await writer.drain()
+    writer.close()
 
 
-async def _run_server(host: str, port: int) -> None:
-    server = await asyncio.start_server(_client_session, host, port)
-    addrs = ", ".join(str(sock.getsockname()) for sock in server.sockets or [])
-    print(f"Leo MCP server listening on {addrs}")
-    async with server:
-        await server.serve_forever()
+def start_mcp_server(port: int = 8800):
+    """Launch MCP-compatible socket server."""
+    async def main():
+        server = await asyncio.start_server(handle_request, "0.0.0.0", port)
+        print(f"[MCP] Server running on port {port}")
+        async with server:
+            await server.serve_forever()
 
-
-def serve(host: str = "0.0.0.0", port: int = 8800) -> None:
-    """Blocking helper to run the MCP server."""
-    asyncio.run(_run_server(host, port))
-
-
-__all__ = ["serve"]
-
+    asyncio.run(main())

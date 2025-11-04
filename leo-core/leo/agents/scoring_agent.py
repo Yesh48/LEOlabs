@@ -1,68 +1,41 @@
-"""Scoring agent combining metrics into LeoRank."""
-from __future__ import annotations
-
-import functools
-from pathlib import Path
-from typing import Dict
+"""
+leo/agents/scoring_agent.py
+Aggregates structure, semantic, and other metrics into a single LEO Rank (0–100).
+"""
 
 import yaml
-
-from ..db import get_database
-from ..state import LeoState
-from ..utils.html_utils import parse_html
-from ..utils.metrics_utils import compute_retrieval_score
-
-_WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "config" / "weights.yml"
+import os
+from leo.state import LeoState
 
 
-@functools.lru_cache(maxsize=1)
-def _load_weights() -> Dict[str, float]:
-    default_weights = {"structure": 0.4, "semantic": 0.4, "retrieval": 0.2}
-    try:
-        data = yaml.safe_load(_WEIGHTS_PATH.read_text())
-    except FileNotFoundError:
-        return default_weights
-    except Exception:
-        return default_weights
-    if not isinstance(data, dict):
-        return default_weights
-    weights: Dict[str, float] = {}
-    for key, value in data.items():
-        try:
-            weights[key] = float(value)
-        except (TypeError, ValueError):
-            continue
-    return {**default_weights, **weights}
+class ScoringAgent:
+    """Combine weighted metrics to compute the final LeoRank score."""
 
+    def __init__(self, weights_path: str = None):
+        # Load weights from config
+        default_path = weights_path or os.path.join(os.path.dirname(__file__), "..", "config", "weights.yml")
+        if os.path.exists(default_path):
+            with open(default_path, "r") as f:
+                self.weights = yaml.safe_load(f).get("weights", {})
+        else:
+            self.weights = {"structure": 0.5, "semantic": 0.5}
 
-def run(state: LeoState, persist: bool = True) -> LeoState:
-    """Calculate the LeoRank aggregate score and persist it."""
+    def run(self, state: LeoState) -> LeoState:
+        print("[ScoringAgent] Computing LeoRank...")
 
-    metrics = dict(state.metrics)
-    soup = parse_html(state.html or "")
-    heading_count = len(soup.find_all(["h1", "h2", "h3", "h4"]))
-    anchor_count = len(soup.find_all("a"))
-    retrieval_score = compute_retrieval_score(state.text or "", heading_count, anchor_count)
-    metrics.setdefault("structure", 0.0)
-    metrics.setdefault("semantic", 0.0)
-    metrics["retrieval"] = round(retrieval_score, 4)
+        structure = state.metrics.get("structure", 0.0)
+        semantic = state.metrics.get("semantic", 0.0)
 
-    weights = _load_weights()
-    leo_rank = 100 * (
-        weights.get("structure", 0.0) * metrics.get("structure", 0.0)
-        + weights.get("semantic", 0.0) * metrics.get("semantic", 0.0)
-        + weights.get("retrieval", 0.0) * metrics.get("retrieval", 0.0)
-    )
-    leo_rank = round(float(leo_rank), 2)
+        w_structure = self.weights.get("structure", 0.5)
+        w_semantic = self.weights.get("semantic", 0.5)
 
-    updated_state = state.model_copy(update={"leo_rank": leo_rank, "metrics": metrics})
-    if persist:
-        try:
-            get_database().record_score(url=state.url, rank=float(leo_rank))
-        except Exception:
-            # Persistence errors should not interrupt scoring flow.
-            pass
-    return updated_state
+        # Normalize total weights
+        total_weight = w_structure + w_semantic or 1
+        w_structure /= total_weight
+        w_semantic /= total_weight
 
+        leo_rank = (structure * w_structure + semantic * w_semantic)
+        state.leo_rank = round(leo_rank, 2)
 
-__all__ = ["run"]
+        print(f"[ScoringAgent] ✅ LeoRank computed: {state.leo_rank}")
+        return state

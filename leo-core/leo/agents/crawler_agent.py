@@ -1,34 +1,46 @@
-"""Crawler agent responsible for fetching page content."""
-from __future__ import annotations
-
-from typing import Optional
+"""
+leo/agents/crawler_agent.py
+Fetches a website’s HTML and extracts visible text content.
+This is the entry point of the LEO Core audit pipeline.
+"""
 
 import requests
-from requests import Response
-
-from ..state import LeoState
-from ..utils.html_utils import extract_visible_text
+from bs4 import BeautifulSoup
+from leo.state import LeoState
 
 
-USER_AGENT = "LeoCoreBot/0.2 (+https://github.com/leo-labs/leo-core)"
+class CrawlerAgent:
+    """Fetch and parse the target website."""
 
+    def __init__(self, timeout: int = 10):
+        self.timeout = timeout
 
-def _fetch(url: str, timeout: int = 10) -> Optional[Response]:
-    try:
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
-        response.raise_for_status()
-        return response
-    except Exception:
-        return None
+    def run(self, state: LeoState) -> LeoState:
+        """Fetch HTML and extract readable text."""
+        url = state.url
+        print(f"[CrawlerAgent] Fetching {url} ...")
 
+        try:
+            response = requests.get(url, timeout=self.timeout, headers={"User-Agent": "LEO-Core/0.2"})
+            response.raise_for_status()
+            html = response.text
+        except Exception as e:
+            print(f"[CrawlerAgent] ❌ Failed to fetch {url}: {e}")
+            state.html = ""
+            state.text = ""
+            return state
 
-def run(state: LeoState) -> LeoState:
-    """Fetch remote HTML and extract visible text."""
-    response = _fetch(state.url)
-    html = response.text if response is not None else None
-    text = extract_visible_text(html) if html else None
+        # Store HTML
+        state.html = html
 
-    return state.model_copy(update={"html": html, "text": text})
+        # Parse and extract text
+        soup = BeautifulSoup(html, "html.parser")
 
+        for element in soup(["script", "style", "noscript"]):
+            element.decompose()
 
-__all__ = ["run"]
+        visible_text = " ".join(soup.stripped_strings)
+        state.text = visible_text[:100000]  # cap to avoid large pages
+
+        print(f"[CrawlerAgent] ✅ Extracted {len(visible_text.split())} words of text")
+        return state

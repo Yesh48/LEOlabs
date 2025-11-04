@@ -1,154 +1,85 @@
-"""Database utilities for Leo Core."""
-from __future__ import annotations
+"""
+leo/db.py
+Handles database operations for LEO Core — supports SQLite (default)
+and optional PostgreSQL (via environment variables).
+"""
 
 import os
 import sqlite3
-from contextlib import closing
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import List, Tuple, Optional
 
-try:
-    import psycopg2
-except Exception:  # pragma: no cover - optional dependency
-    psycopg2 = None  # type: ignore
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 
-SQLITE_SCORES_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS scores (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    url TEXT NOT NULL,
-    rank REAL NOT NULL,
-    timestamp TEXT NOT NULL
-)
-"""
+DB_ENGINE = os.getenv("LEO_DB_ENGINE", "sqlite")  # 'sqlite' or 'postgres'
+SQLITE_PATH = os.getenv("LEO_SQLITE_PATH", "/tmp/leo.db")
 
-POSTGRES_SCORES_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS scores (
-    id SERIAL PRIMARY KEY,
-    url TEXT NOT NULL,
-    rank DOUBLE PRECISION NOT NULL,
-    timestamp TEXT NOT NULL
-)
-"""
+POSTGRES_CONFIG = {
+    "host": os.getenv("LEO_PG_HOST", "localhost"),
+    "user": os.getenv("LEO_PG_USER", "leo"),
+    "password": os.getenv("LEO_PG_PASSWORD", "leo123"),
+    "database": os.getenv("LEO_PG_DATABASE", "leodb"),
+}
 
 
-class DatabaseError(RuntimeError):
-    """Raised when the database configuration is invalid."""
+def get_connection():
+    """Return a database connection depending on engine."""
+    if DB_ENGINE == "postgres":
+        return psycopg2.connect(**POSTGRES_CONFIG, cursor_factory=RealDictCursor)
+    conn = sqlite3.connect(SQLITE_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
-class Database:
-    """Minimal database wrapper supporting SQLite and Postgres."""
-
-    def __init__(self) -> None:
-        postgres_enabled = os.getenv("POSTGRES_ENABLED", "").lower() in {"1", "true", "yes"}
-        self.engine = "postgres" if postgres_enabled else os.getenv("LEO_DB_ENGINE", "sqlite").lower()
-        if self.engine not in {"sqlite", "postgres"}:
-            raise DatabaseError(f"Unsupported database engine: {self.engine}")
-        self._sqlite_path = os.getenv("LEO_DB_PATH", "/tmp/leo.db")
-        self._postgres_dsn = os.getenv("LEO_DB_DSN")
-        self._postgres_settings = {
-            "dbname": os.getenv("LEO_DB_NAME", "leodb"),
-            "user": os.getenv("LEO_DB_USER", "leo"),
-            "password": os.getenv("LEO_DB_PASSWORD", ""),
-            "host": os.getenv("LEO_DB_HOST", "localhost"),
-            "port": int(os.getenv("LEO_DB_PORT", "5432")),
-        }
-        self._initialised = False
-
-    # connection helpers -------------------------------------------------
-    def connect(self):  # type: ignore[override]
-        if self.engine == "sqlite":
-            conn = sqlite3.connect(self._sqlite_path)
-            conn.execute("PRAGMA journal_mode=WAL;")
-            return conn
-        if psycopg2 is None:
-            raise DatabaseError("psycopg2-binary is required for Postgres support")
-        if self._postgres_dsn:
-            return psycopg2.connect(self._postgres_dsn)
-        return psycopg2.connect(**self._postgres_settings)
-
-    # schema --------------------------------------------------------------
-    def init(self) -> None:
-        if self._initialised:
-            return
-        with closing(self.connect()) as conn:
-            cursor = conn.cursor()
-            if self.engine == "postgres":
-                cursor.execute(POSTGRES_SCORES_TABLE_SQL)
-            else:
-                cursor.execute(SQLITE_SCORES_TABLE_SQL)
-            conn.commit()
-        self._initialised = True
-
-    # operations ----------------------------------------------------------
-    def record_score(self, url: str, rank: float, timestamp: Optional[str] = None) -> None:
-        self.init()
-        ts = timestamp or datetime.now(timezone.utc).isoformat()
-        with closing(self.connect()) as conn:
-            cursor = conn.cursor()
-            if self.engine == "postgres":
-                cursor.execute(
-                    "INSERT INTO scores (url, rank, timestamp) VALUES (%s, %s, %s)",
-                    (url, rank, ts),
-                )
-            else:
-                cursor.execute(
-                    "INSERT INTO scores (url, rank, timestamp) VALUES (?, ?, ?)",
-                    (url, rank, ts),
-                )
-            conn.commit()
-
-    def recent_scores(self, limit: int = 10) -> List[Dict[str, Any]]:
-        self.init()
-        if self.engine == "postgres":
-            query = "SELECT id, url, rank, timestamp FROM scores ORDER BY timestamp DESC LIMIT %s"
-            params = (limit,)
-        else:
-            query = "SELECT id, url, rank, timestamp FROM scores ORDER BY timestamp DESC LIMIT ?"
-            params = (limit,)
-        with closing(self.connect()) as conn:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-        results: List[Dict[str, Any]] = []
-        for row in rows:
-            if self.engine == "postgres":
-                record_id, url, rank, timestamp = row
-            else:
-                record_id, url, rank, timestamp = row
-            results.append(
-                {
-                    "id": int(record_id),
-                    "url": url,
-                    "rank": float(rank),
-                    "timestamp": str(timestamp),
-                }
-            )
-        return results
-
-    def summary(self) -> Dict[str, Any]:
-        self.init()
-        with closing(self.connect()) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*), AVG(rank) FROM scores")
-            count, average = cursor.fetchone()
-        return {
-            "engine": self.engine,
-            "count": int(count or 0),
-            "average_rank": float(average or 0.0),
-        }
+def init_db():
+    """Initialize the scores table."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT,
+            rank FLOAT,
+            timestamp TEXT
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
 
 
-_DB_INSTANCE: Optional[Database] = None
+def save_score(url: str, rank: float) -> None:
+    """Insert a new score entry."""
+    conn = get_connection()
+    cur = conn.cursor()
+    ts = datetime.utcnow().isoformat()
+    cur.execute(
+        "INSERT INTO scores (url, rank, timestamp) VALUES (?, ?, ?)"
+        if DB_ENGINE == "sqlite"
+        else "INSERT INTO scores (url, rank, timestamp) VALUES (%s, %s, %s)",
+        (url, rank, ts),
+    )
+    conn.commit()
+    conn.close()
 
 
-def get_database() -> Database:
-    """Return a singleton database instance."""
-    global _DB_INSTANCE
-    if _DB_INSTANCE is None:
-        _DB_INSTANCE = Database()
-        _DB_INSTANCE.init()
-    return _DB_INSTANCE
+def get_recent_scores(limit: int = 10) -> List[Tuple[str, float, str]]:
+    """Fetch recent audit results."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT url, rank, timestamp FROM scores ORDER BY id DESC LIMIT ?"
+        if DB_ENGINE == "sqlite"
+        else "SELECT url, rank, timestamp FROM scores ORDER BY id DESC LIMIT %s",
+        (limit,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
 
 
-__all__ = ["Database", "DatabaseError", "get_database"]
+# Initialize DB automatically on import
+init_db()
